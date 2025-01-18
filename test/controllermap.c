@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 1997-2023 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -160,6 +160,7 @@ static AxisState* s_arrAxisState;
 
 static int s_iCurrentBinding;
 static Uint32 s_unPendingAdvanceTime;
+static Uint32 s_skip_tick;
 static SDL_bool s_bBindingComplete;
 
 static SDL_Window* window;
@@ -186,6 +187,10 @@ SetCurrentBinding(int iBinding) {
     if (iBinding < 0) {
         return;
     }
+
+#ifdef DEBUG_CONTROLLERMAP
+    SDL_Log("iBinding=%d BINDING_COUNT=%d\n", iBinding, BINDING_COUNT);
+#endif
 
     if (iBinding == BINDING_COUNT) {
         s_bBindingComplete = SDL_TRUE;
@@ -246,6 +251,7 @@ ConfigureBinding(const SDL_GameControllerExtendedBind* pBinding) {
     SDL_GameControllerExtendedBind* pCurrent;
     int iIndex;
     int iCurrentElement = s_arrBindingOrder[s_iCurrentBinding];
+    s_skip_tick = SDL_GetTicks();   // update skip_tick to current time when any binding is configured
 
     /* Do we already have this binding? */
     for (iIndex = 0; iIndex < SDL_arraysize(s_arrBindings); ++iIndex) {
@@ -368,7 +374,7 @@ WatchJoystick(SDL_Joystick* joystick) {
     Press the buttons on your controller when indicated\n\
     (Your controller may look different than the picture)\n\
     If you want to correct a mistake, press backspace or the back button on your device\n\
-    To skip a button, press SPACE or click/touch the screen\n\
+    To skip a button, press SPACE or click/touch the screen or wait for 5 seconds\n\
     To exit, press ESC\n\
     ====================================================================================\n");
 
@@ -408,6 +414,12 @@ WatchJoystick(SDL_Joystick* joystick) {
             if (alpha < 128) {
                 alpha_step = 1;
             }
+        }
+
+        // skip binding if past 5000 ms
+        if (SDL_GetTicks() - s_skip_tick > 5000) {
+            s_skip_tick = SDL_GetTicks();
+            if (s_iCurrentBinding) SetCurrentBinding(s_iCurrentBinding + 1);
         }
 
         SDL_SetRenderDrawColor(screen, 0xFF, 0xFF, 0xFF, SDL_ALPHA_OPAQUE);
@@ -520,6 +532,9 @@ WatchJoystick(SDL_Joystick* joystick) {
                 }
 
                 if ((event.key.keysym.sym != SDLK_ESCAPE)) {
+#ifdef DEBUG_CONTROLLERMAP
+                    SDL_Log("KEY %d\n", event.key.keysym.sym);
+#endif                    
                     break;
                 }
                 SDL_FALLTHROUGH;
@@ -684,6 +699,14 @@ WatchJoystick(SDL_Joystick* joystick) {
         SDL_Log("Mapping:\n\n%s\n\n", mapping);
         /* Print to stdout as well so the user can cat the output somewhere */
         printf("%s\n", mapping);
+
+        // Write mapping to file gamecontrollerdb.txt
+        FILE* f;
+        f = fopen("gamecontrollerdb.txt", "a");
+        if (f) {
+            fprintf(f, "%s\n", mapping);
+            fclose(f);
+        }
     }
 
     SDL_free(s_arrAxisState);
