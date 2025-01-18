@@ -23,7 +23,7 @@
 #ifndef SDL_JOYSTICK_DISABLED
 
 /* Define this for verbose output while mapping controllers */
-#define DEBUG_CONTROLLERMAP
+// #define DEBUG_CONTROLLERMAP
 
 #define SCREEN_WIDTH    512
 #define SCREEN_HEIGHT   320
