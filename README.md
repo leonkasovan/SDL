@@ -9,6 +9,17 @@ hardware via OpenGL and Direct3D. It is used by video playback software,
 emulators, and popular games including Valve's award winning catalog
 and many Humble Bundle games.
 
+Build  
+```
+cd SDL-release-2.26.x/
+
+./configure --prefix=/usr
+make -j8
+make install
+
+/sbin/ldconfig
+```
+
 More extensive documentation is available in the docs directory, starting
 with README.md
 
