@@ -33,8 +33,7 @@ enum marker_type {
     MARKER_AXIS,
 };
 
-enum
-{
+enum {
     SDL_CONTROLLER_BINDING_AXIS_LEFTX_NEGATIVE,
     SDL_CONTROLLER_BINDING_AXIS_LEFTX_POSITIVE,
     SDL_CONTROLLER_BINDING_AXIS_LEFTY_NEGATIVE,
@@ -50,8 +49,7 @@ enum
 
 #define BINDING_COUNT (SDL_CONTROLLER_BUTTON_MAX + SDL_CONTROLLER_BINDING_AXIS_MAX)
 
-static struct
-{
+static struct {
     int x, y;
     double angle;
     enum marker_type marker;
@@ -126,11 +124,9 @@ static int s_arrBindingOrder[] = {
 };
 SDL_COMPILE_TIME_ASSERT(s_arrBindingOrder, SDL_arraysize(s_arrBindingOrder) == BINDING_COUNT);
 
-typedef struct
-{
+typedef struct {
     SDL_GameControllerBindType bindType;
-    union
-    {
+    union {
         int button;
 
         struct {
@@ -152,8 +148,7 @@ typedef struct
 
 static SDL_GameControllerExtendedBind s_arrBindings[BINDING_COUNT];
 
-typedef struct
-{
+typedef struct {
     SDL_bool m_bMoving;
     int m_nLastValue;
     int m_nStartingValue;
@@ -161,23 +156,22 @@ typedef struct
 } AxisState;
 
 static int s_nNumAxes;
-static AxisState *s_arrAxisState;
-    
+static AxisState* s_arrAxisState;
+
 static int s_iCurrentBinding;
 static Uint32 s_unPendingAdvanceTime;
 static SDL_bool s_bBindingComplete;
 
-static SDL_Window *window;
-static SDL_Renderer *screen;
+static SDL_Window* window;
+static SDL_Renderer* screen;
 static SDL_bool done = SDL_FALSE;
 static SDL_bool bind_touchpad = SDL_FALSE;
 
 static int
-StandardizeAxisValue(int nValue)
-{
-    if (nValue > SDL_JOYSTICK_AXIS_MAX/2) {
+StandardizeAxisValue(int nValue) {
+    if (nValue > SDL_JOYSTICK_AXIS_MAX / 2) {
         return SDL_JOYSTICK_AXIS_MAX;
-    } else if (nValue < SDL_JOYSTICK_AXIS_MIN/2) {
+    } else if (nValue < SDL_JOYSTICK_AXIS_MIN / 2) {
         return SDL_JOYSTICK_AXIS_MIN;
     } else {
         return 0;
@@ -185,10 +179,9 @@ StandardizeAxisValue(int nValue)
 }
 
 static void
-SetCurrentBinding(int iBinding)
-{
+SetCurrentBinding(int iBinding) {
     int iIndex;
-    SDL_GameControllerExtendedBind *pBinding;
+    SDL_GameControllerExtendedBind* pBinding;
 
     if (iBinding < 0) {
         return;
@@ -199,15 +192,13 @@ SetCurrentBinding(int iBinding)
         return;
     }
 
-    if (s_arrBindingOrder[iBinding] == -1)
-    {
+    if (s_arrBindingOrder[iBinding] == -1) {
         SetCurrentBinding(iBinding + 1);
         return;
     }
 
     if (s_arrBindingOrder[iBinding] == SDL_CONTROLLER_BUTTON_TOUCHPAD &&
-        !bind_touchpad)
-    {
+        !bind_touchpad) {
         SetCurrentBinding(iBinding + 1);
         return;
     }
@@ -225,14 +216,11 @@ SetCurrentBinding(int iBinding)
 }
 
 static SDL_bool
-BBindingContainsBinding(const SDL_GameControllerExtendedBind *pBindingA, const SDL_GameControllerExtendedBind *pBindingB)
-{
-    if (pBindingA->bindType != pBindingB->bindType)
-    {
+BBindingContainsBinding(const SDL_GameControllerExtendedBind* pBindingA, const SDL_GameControllerExtendedBind* pBindingB) {
+    if (pBindingA->bindType != pBindingB->bindType) {
         return SDL_FALSE;
     }
-    switch (pBindingA->bindType)
-    {
+    switch (pBindingA->bindType) {
     case SDL_CONTROLLER_BINDTYPE_AXIS:
         if (pBindingA->value.axis.axis != pBindingB->value.axis.axis) {
             return SDL_FALSE;
@@ -254,9 +242,8 @@ BBindingContainsBinding(const SDL_GameControllerExtendedBind *pBindingA, const S
 }
 
 static void
-ConfigureBinding(const SDL_GameControllerExtendedBind *pBinding)
-{
-    SDL_GameControllerExtendedBind *pCurrent;
+ConfigureBinding(const SDL_GameControllerExtendedBind* pBinding) {
+    SDL_GameControllerExtendedBind* pCurrent;
     int iIndex;
     int iCurrentElement = s_arrBindingOrder[s_iCurrentBinding];
 
@@ -282,19 +269,18 @@ ConfigureBinding(const SDL_GameControllerExtendedBind *pBinding)
     }
 
 #ifdef DEBUG_CONTROLLERMAP
-    switch ( pBinding->bindType )
-    {
+    switch (pBinding->bindType) {
     case SDL_CONTROLLER_BINDTYPE_NONE:
-            break;
+        break;
     case SDL_CONTROLLER_BINDTYPE_BUTTON:
-            SDL_Log("Configuring button binding for button %d\n", pBinding->value.button);
-            break;
+        SDL_Log("Configuring button binding for button %d\n", pBinding->value.button);
+        break;
     case SDL_CONTROLLER_BINDTYPE_AXIS:
-            SDL_Log("Configuring axis binding for axis %d %d/%d committed = %s\n", pBinding->value.axis.axis, pBinding->value.axis.axis_min, pBinding->value.axis.axis_max, pBinding->committed ? "true" : "false");
-            break;
+        SDL_Log("Configuring axis binding for axis %d %d/%d committed = %s\n", pBinding->value.axis.axis, pBinding->value.axis.axis_min, pBinding->value.axis.axis_max, pBinding->committed ? "true" : "false");
+        break;
     case SDL_CONTROLLER_BINDTYPE_HAT:
-            SDL_Log("Configuring hat binding for hat %d %d\n", pBinding->value.hat.hat, pBinding->value.hat.hat_mask);
-            break;
+        SDL_Log("Configuring hat binding for hat %d %d\n", pBinding->value.hat.hat, pBinding->value.hat.hat_mask);
+        break;
     }
 #endif /* DEBUG_CONTROLLERMAP */
 
@@ -303,11 +289,11 @@ ConfigureBinding(const SDL_GameControllerExtendedBind *pBinding)
     if (pCurrent->bindType != SDL_CONTROLLER_BINDTYPE_NONE) {
         SDL_bool bNativeDPad, bCurrentDPad;
         SDL_bool bNativeAxis, bCurrentAxis;
-        
+
         bNativeDPad = (iCurrentElement == SDL_CONTROLLER_BUTTON_DPAD_UP ||
-                       iCurrentElement == SDL_CONTROLLER_BUTTON_DPAD_DOWN ||
-                       iCurrentElement == SDL_CONTROLLER_BUTTON_DPAD_LEFT ||
-                       iCurrentElement == SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
+            iCurrentElement == SDL_CONTROLLER_BUTTON_DPAD_DOWN ||
+            iCurrentElement == SDL_CONTROLLER_BUTTON_DPAD_LEFT ||
+            iCurrentElement == SDL_CONTROLLER_BUTTON_DPAD_RIGHT);
         bCurrentDPad = (pCurrent->bindType == SDL_CONTROLLER_BINDTYPE_HAT);
         if (bNativeDPad && bCurrentDPad) {
             /* We already have a binding of the type we want, ignore the new one */
@@ -318,7 +304,7 @@ ConfigureBinding(const SDL_GameControllerExtendedBind *pBinding)
         bCurrentAxis = (pCurrent->bindType == SDL_CONTROLLER_BINDTYPE_AXIS);
         if (bNativeAxis == bCurrentAxis &&
             (pBinding->bindType != SDL_CONTROLLER_BINDTYPE_AXIS ||
-             pBinding->value.axis.axis != pCurrent->value.axis.axis)) {
+                pBinding->value.axis.axis != pCurrent->value.axis.axis)) {
             /* We already have a binding of the type we want, ignore the new one */
             return;
         }
@@ -334,10 +320,9 @@ ConfigureBinding(const SDL_GameControllerExtendedBind *pBinding)
 }
 
 static SDL_bool
-BMergeAxisBindings(int iIndex)
-{
-    SDL_GameControllerExtendedBind *pBindingA = &s_arrBindings[iIndex];
-    SDL_GameControllerExtendedBind *pBindingB = &s_arrBindings[iIndex+1];
+BMergeAxisBindings(int iIndex) {
+    SDL_GameControllerExtendedBind* pBindingA = &s_arrBindings[iIndex];
+    SDL_GameControllerExtendedBind* pBindingB = &s_arrBindings[iIndex + 1];
     if (pBindingA->bindType == SDL_CONTROLLER_BINDTYPE_AXIS &&
         pBindingB->bindType == SDL_CONTROLLER_BINDTYPE_AXIS &&
         pBindingA->value.axis.axis == pBindingB->value.axis.axis) {
@@ -352,13 +337,12 @@ BMergeAxisBindings(int iIndex)
 }
 
 static void
-WatchJoystick(SDL_Joystick * joystick)
-{
-    SDL_Texture *background_front, *background_back, *button, *axis, *marker=NULL;
-    const char *name = NULL;
+WatchJoystick(SDL_Joystick* joystick) {
+    SDL_Texture* background_front, * background_back, * button, * axis, * marker = NULL;
+    const char* name = NULL;
     SDL_Event event;
     SDL_Rect dst;
-    Uint8 alpha=200, alpha_step = -1;
+    Uint8 alpha = 200, alpha_step = -1;
     Uint32 alpha_ticks = 0;
     SDL_JoystickID nJoystickID;
 
@@ -374,11 +358,11 @@ WatchJoystick(SDL_Joystick * joystick)
     /* Print info about the joystick we are watching */
     name = SDL_JoystickName(joystick);
     SDL_Log("Watching joystick %" SDL_PRIs32 ": (%s)\n", SDL_JoystickInstanceID(joystick),
-            name ? name : "Unknown Joystick");
+        name ? name : "Unknown Joystick");
     SDL_Log("Joystick has %d axes, %d hats, %d balls, and %d buttons\n",
-           SDL_JoystickNumAxes(joystick), SDL_JoystickNumHats(joystick),
-           SDL_JoystickNumBalls(joystick), SDL_JoystickNumButtons(joystick));
-    
+        SDL_JoystickNumAxes(joystick), SDL_JoystickNumHats(joystick),
+        SDL_JoystickNumBalls(joystick), SDL_JoystickNumButtons(joystick));
+
     SDL_Log("\n\n\
     ====================================================================================\n\
     Press the buttons on your controller when indicated\n\
@@ -391,7 +375,7 @@ WatchJoystick(SDL_Joystick * joystick)
     nJoystickID = SDL_JoystickInstanceID(joystick);
 
     s_nNumAxes = SDL_JoystickNumAxes(joystick);
-    s_arrAxisState = (AxisState *)SDL_calloc(s_nNumAxes, sizeof(*s_arrAxisState));
+    s_arrAxisState = (AxisState*) SDL_calloc(s_nNumAxes, sizeof(*s_arrAxisState));
 
     /* Skip any spurious events at start */
     while (SDL_PollEvent(&event) > 0) {
@@ -403,14 +387,14 @@ WatchJoystick(SDL_Joystick * joystick)
         int iElement = s_arrBindingOrder[s_iCurrentBinding];
 
         switch (s_arrBindingDisplay[iElement].marker) {
-            case MARKER_AXIS:
-                marker = axis;
-                break;
-            case MARKER_BUTTON:
-                marker = button;
-                break;
+        case MARKER_AXIS:
+            marker = axis;
+            break;
+        case MARKER_BUTTON:
+            marker = button;
+            break;
         }
-        
+
         dst.x = s_arrBindingDisplay[iElement].x;
         dst.y = s_arrBindingDisplay[iElement].y;
         SDL_QueryTexture(marker, NULL, NULL, &dst.w, &dst.h);
@@ -438,7 +422,7 @@ WatchJoystick(SDL_Joystick * joystick)
         SDL_SetTextureColorMod(marker, 10, 255, 21);
         SDL_RenderCopyEx(screen, marker, NULL, &dst, s_arrBindingDisplay[iElement].angle, NULL, SDL_FLIP_NONE);
         SDL_RenderPresent(screen);
-            
+
         while (SDL_PollEvent(&event) > 0) {
             switch (event.type) {
             case SDL_JOYDEVICEREMOVED:
@@ -449,7 +433,7 @@ WatchJoystick(SDL_Joystick * joystick)
             case SDL_JOYAXISMOTION:
                 if (event.jaxis.which == nJoystickID) {
                     const int MAX_ALLOWED_JITTER = SDL_JOYSTICK_AXIS_MAX / 80;  /* ShanWan PS3 controller needed 96 */
-                    AxisState *pAxisState = &s_arrAxisState[event.jaxis.axis];
+                    AxisState* pAxisState = &s_arrAxisState[event.jaxis.axis];
                     int nValue = event.jaxis.value;
                     int nCurrentDistance, nFarthestDistance;
                     if (!pAxisState->m_bMoving) {
@@ -562,7 +546,7 @@ WatchJoystick(SDL_Joystick * joystick)
         Uint16 crc;
         char mapping[1024];
         char trimmed_name[128];
-        char *spot;
+        char* spot;
         int iIndex;
         char pszElement[12];
 
@@ -602,16 +586,16 @@ WatchJoystick(SDL_Joystick * joystick)
         }
 
         for (iIndex = 0; iIndex < SDL_arraysize(s_arrBindings); ++iIndex) {
-            SDL_GameControllerExtendedBind *pBinding = &s_arrBindings[iIndex];
+            SDL_GameControllerExtendedBind* pBinding = &s_arrBindings[iIndex];
             if (pBinding->bindType == SDL_CONTROLLER_BINDTYPE_NONE) {
                 continue;
             }
 
             if (iIndex < SDL_CONTROLLER_BUTTON_MAX) {
-                SDL_GameControllerButton eButton = (SDL_GameControllerButton)iIndex;
+                SDL_GameControllerButton eButton = (SDL_GameControllerButton) iIndex;
                 SDL_strlcat(mapping, SDL_GameControllerGetStringForButton(eButton), SDL_arraysize(mapping));
             } else {
-                const char *pszAxisName = NULL;
+                const char* pszAxisName = NULL;
                 switch (iIndex - SDL_CONTROLLER_BUTTON_MAX) {
                 case SDL_CONTROLLER_BINDING_AXIS_LEFTX_NEGATIVE:
                     if (!BMergeAxisBindings(iIndex)) {
@@ -704,17 +688,16 @@ WatchJoystick(SDL_Joystick * joystick)
 
     SDL_free(s_arrAxisState);
     s_arrAxisState = NULL;
-    
+
     SDL_DestroyRenderer(screen);
 }
 
 int
-main(int argc, char *argv[])
-{
-    const char *name;
+main(int argc, char* argv[]) {
+    const char* name;
     int i;
     int joystick_index;
-    SDL_Joystick *joystick;
+    SDL_Joystick* joystick;
 
     SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
 
@@ -733,8 +716,8 @@ main(int argc, char *argv[])
 
     /* Create a window to display joystick axis position */
     window = SDL_CreateWindow("Game Controller Map", SDL_WINDOWPOS_CENTERED,
-                              SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH,
-                              SCREEN_HEIGHT, 0);
+        SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH,
+        SCREEN_HEIGHT, 0);
     if (window == NULL) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create window: %s\n", SDL_GetError());
         return 2;
@@ -774,11 +757,11 @@ main(int argc, char *argv[])
         joystick = SDL_JoystickOpen(i);
         if (joystick == NULL) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL_JoystickOpen(%d) failed: %s\n", i,
-                    SDL_GetError());
+                SDL_GetError());
         } else {
             char guid[64];
             SDL_JoystickGetGUIDString(SDL_JoystickGetGUID(joystick),
-                                      guid, sizeof (guid));
+                guid, sizeof(guid));
             SDL_Log("       axes: %d\n", SDL_JoystickNumAxes(joystick));
             SDL_Log("      balls: %d\n", SDL_JoystickNumBalls(joystick));
             SDL_Log("       hats: %d\n", SDL_JoystickNumHats(joystick));
@@ -815,8 +798,7 @@ main(int argc, char *argv[])
 #else
 
 int
-main(int argc, char *argv[])
-{
+main(int argc, char* argv[]) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "SDL compiled without Joystick support.\n");
     return 1;
 }
