@@ -896,7 +896,6 @@ bool SDL_CreateWindowAndRenderer(const char *title, int width, int height, SDL_W
     }
 
     // Hide the window so if the renderer recreates it, we don't get a visual flash on screen
-    printf("Creating window '%s' with size %dx%d and flags 0x%lx\n", title, width, height, window_flags);
     window_flags |= SDL_WINDOW_HIDDEN;
     *window = SDL_CreateWindow(title, width, height, window_flags);
     if (!*window) {
@@ -904,7 +903,6 @@ bool SDL_CreateWindowAndRenderer(const char *title, int width, int height, SDL_W
         return false;
     }
 
-    printf("Creating renderer for window\n");
     *renderer = SDL_CreateRenderer(*window, NULL);
     if (!*renderer) {
         SDL_DestroyWindow(*window);
@@ -912,7 +910,6 @@ bool SDL_CreateWindowAndRenderer(const char *title, int width, int height, SDL_W
         return false;
     }
 
-    printf("Renderer created successfully for window\n");
     if (!hidden) {
         SDL_ShowWindow(*window);
     }
@@ -982,13 +979,9 @@ static void SDL_CalculateSimulatedVSyncInterval(SDL_Renderer *renderer, SDL_Wind
 SDL_Renderer *SDL_CreateRendererWithProperties(SDL_PropertiesID props)
 {
 #ifndef SDL_RENDER_DISABLED
-    printf("%s:%d\n", __FILE__, __LINE__);
     SDL_Window *window = (SDL_Window *)SDL_GetPointerProperty(props, SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, NULL);
-    printf("%s:%d\n", __FILE__, __LINE__);
     SDL_Surface *surface = (SDL_Surface *)SDL_GetPointerProperty(props, SDL_PROP_RENDERER_CREATE_SURFACE_POINTER, NULL);
-    printf("%s:%d\n", __FILE__, __LINE__);
     const char *driver_name = SDL_GetStringProperty(props, SDL_PROP_RENDERER_CREATE_NAME_STRING, NULL);
-    printf("%s:%d\n", __FILE__, __LINE__);
     const char *hint;
     SDL_PropertiesID new_props;
 
@@ -1002,34 +995,28 @@ SDL_Renderer *SDL_CreateRendererWithProperties(SDL_PropertiesID props)
     if (!renderer) {
         goto error;
     }
-    printf("%s:%d\n", __FILE__, __LINE__);
     SDL_SetObjectValid(renderer, SDL_OBJECT_TYPE_RENDERER, true);
 
-    printf("%s:%d\n", __FILE__, __LINE__);
     if ((!window && !surface) || (window && surface)) {
         SDL_InvalidParamError("window");
         goto error;
     }
 
-    printf("%s:%d\n", __FILE__, __LINE__);
     if (window && SDL_WindowHasSurface(window)) {
         SDL_SetError("Surface already associated with window");
         goto error;
     }
 
-    printf("%s:%d\n", __FILE__, __LINE__);
     if (window && SDL_GetRenderer(window)) {
         SDL_SetError("Renderer already associated with window");
         goto error;
     }
 
-    printf("%s:%d\n", __FILE__, __LINE__);
     hint = SDL_GetHint(SDL_HINT_RENDER_VSYNC);
     if (hint && *hint) {
         SDL_SetNumberProperty(props, SDL_PROP_RENDERER_CREATE_PRESENT_VSYNC_NUMBER, SDL_GetHintBoolean(SDL_HINT_RENDER_VSYNC, true));
     }
 
-    printf("%s:%d\n", __FILE__, __LINE__);
     if (surface) {
 #ifdef SDL_VIDEO_RENDER_SW
         const bool rc = SW_CreateRendererForSurface(renderer, surface, props);
@@ -1040,7 +1027,6 @@ SDL_Renderer *SDL_CreateRendererWithProperties(SDL_PropertiesID props)
             goto error;
         }
     } else {
-        printf("%s:%d\n", __FILE__, __LINE__);
         bool rc = false;
         if (!driver_name) {
             driver_name = SDL_GetHint(SDL_HINT_RENDER_DRIVER);
@@ -1048,7 +1034,6 @@ SDL_Renderer *SDL_CreateRendererWithProperties(SDL_PropertiesID props)
 
         if (driver_name && *driver_name != 0) {
             const char *driver_attempt = driver_name;
-            printf("%s:%d\n", __FILE__, __LINE__);
             while (driver_attempt && *driver_attempt != 0 && !rc) {
                 const char *driver_attempt_end = SDL_strchr(driver_attempt, ',');
                 const size_t driver_attempt_len = (driver_attempt_end) ? (driver_attempt_end - driver_attempt) : SDL_strlen(driver_attempt);
@@ -1065,12 +1050,9 @@ SDL_Renderer *SDL_CreateRendererWithProperties(SDL_PropertiesID props)
 
                 driver_attempt = (driver_attempt_end) ? (driver_attempt_end + 1) : NULL;
             }
-            printf("%s:%d\n", __FILE__, __LINE__);
         } else {
-            printf("%s:%d\n", __FILE__, __LINE__);
             for (int i = 0; render_drivers[i]; i++) {
                 const SDL_RenderDriver *driver = render_drivers[i];
-                printf("%s:%d %d %s\n", __FILE__, __LINE__, i, driver->name);
                 rc = driver->CreateRenderer(renderer, window, props);
                 if (rc) {
                     break;
@@ -1078,11 +1060,11 @@ SDL_Renderer *SDL_CreateRendererWithProperties(SDL_PropertiesID props)
                 SDL_DestroyRendererWithoutFreeing(renderer);
                 SDL_zerop(renderer);  // make sure we don't leave function pointers from a previous CreateRenderer() in this struct.
             }
-            printf("%s:%d\n", __FILE__, __LINE__);
         }
 
-        printf("%s:%d\n", __FILE__, __LINE__);
-        if (!rc) {
+        if (rc) {
+            SDL_LogBackend("render", renderer->name);
+        } else {
             if (driver_name) {
                 SDL_SetError("%s not available", driver_name);
             } else {
@@ -1092,11 +1074,9 @@ SDL_Renderer *SDL_CreateRendererWithProperties(SDL_PropertiesID props)
         }
     }
 
-    printf("%s:%d\n", __FILE__, __LINE__);
     VerifyDrawQueueFunctions(renderer);
 
     renderer->window = window;
-    printf("%s:%d\n", __FILE__, __LINE__);
     renderer->target_mutex = SDL_CreateMutex();
     if (surface) {
         renderer->main_view.pixel_w = surface->w;
@@ -1113,13 +1093,9 @@ SDL_Renderer *SDL_CreateRendererWithProperties(SDL_PropertiesID props)
     renderer->view = &renderer->main_view;
     renderer->dpi_scale.x = 1.0f;
     renderer->dpi_scale.y = 1.0f;
-    printf("%s:%d\n", __FILE__, __LINE__);
     UpdatePixelViewport(renderer, &renderer->main_view);
-    printf("%s:%d\n", __FILE__, __LINE__);
     UpdatePixelClipRect(renderer, &renderer->main_view);
-    printf("%s:%d\n", __FILE__, __LINE__);
     UpdateMainViewDimensions(renderer);
-    printf("%s:%d\n", __FILE__, __LINE__);
 
     // new textures start at zero, so we start at 1 so first render doesn't flush by accident.
     renderer->render_command_generation = 1;
@@ -1130,7 +1106,6 @@ SDL_Renderer *SDL_CreateRendererWithProperties(SDL_PropertiesID props)
     } else {
         renderer->line_method = SDL_GetRenderLineMethod();
     }
-    printf("%s:%d\n", __FILE__, __LINE__);
 
     renderer->scale_mode = SDL_SCALEMODE_LINEAR;
 
@@ -1139,7 +1114,6 @@ SDL_Renderer *SDL_CreateRendererWithProperties(SDL_PropertiesID props)
     renderer->desired_color_scale = 1.0f;
     renderer->color_scale = 1.0f;
 
-    printf("%s:%d\n", __FILE__, __LINE__);
     if (window) {
         if (SDL_GetWindowFlags(window) & SDL_WINDOW_TRANSPARENT) {
             renderer->transparent_window = true;
@@ -1149,40 +1123,31 @@ SDL_Renderer *SDL_CreateRendererWithProperties(SDL_PropertiesID props)
             renderer->hidden = true;
         }
     }
-    printf("%s:%d\n", __FILE__, __LINE__);
 
     new_props = SDL_GetRendererProperties(renderer);
     SDL_SetStringProperty(new_props, SDL_PROP_RENDERER_NAME_STRING, renderer->name);
-    printf("%s:%d\n", __FILE__, __LINE__);
     if (window) {
         SDL_SetPointerProperty(new_props, SDL_PROP_RENDERER_WINDOW_POINTER, window);
     }
     if (surface) {
         SDL_SetPointerProperty(new_props, SDL_PROP_RENDERER_SURFACE_POINTER, surface);
     }
-    printf("%s:%d\n", __FILE__, __LINE__);
     SDL_SetNumberProperty(new_props, SDL_PROP_RENDERER_OUTPUT_COLORSPACE_NUMBER, renderer->output_colorspace);
-    printf("%s:%d\n", __FILE__, __LINE__);
     UpdateHDRProperties(renderer);
 
-    printf("%s:%d\n", __FILE__, __LINE__);
     if (window) {
         SDL_SetPointerProperty(SDL_GetWindowProperties(window), SDL_PROP_WINDOW_RENDERER_POINTER, renderer);
         SDL_AddWindowRenderer(window, renderer);
     }
 
-    printf("%s:%d\n", __FILE__, __LINE__);
     SDL_SetRenderViewport(renderer, NULL);
 
-    printf("%s:%d\n", __FILE__, __LINE__);
     if (window) {
         SDL_AddWindowEventWatch(SDL_WINDOW_EVENT_WATCH_NORMAL, SDL_RendererEventWatch, renderer);
     }
 
-    printf("%s:%d\n", __FILE__, __LINE__);
     int vsync = (int)SDL_GetNumberProperty(props, SDL_PROP_RENDERER_CREATE_PRESENT_VSYNC_NUMBER, 0);
     SDL_SetRenderVSync(renderer, vsync);
-    printf("%s:%d\n", __FILE__, __LINE__);
     SDL_CalculateSimulatedVSyncInterval(renderer, window);
 
     SDL_LogInfo(SDL_LOG_CATEGORY_RENDER,
@@ -1218,17 +1183,11 @@ error:
 SDL_Renderer *SDL_CreateRenderer(SDL_Window *window, const char *name)
 {
     SDL_Renderer *renderer;
-    printf("%s:%d\n", __FILE__, __LINE__);
     SDL_PropertiesID props = SDL_CreateProperties();
-    printf("%s:%d\n", __FILE__, __LINE__);
     SDL_SetPointerProperty(props, SDL_PROP_RENDERER_CREATE_WINDOW_POINTER, window);
-    printf("%s:%d\n", __FILE__, __LINE__);
     SDL_SetStringProperty(props, SDL_PROP_RENDERER_CREATE_NAME_STRING, name);
-    printf("%s:%d\n", __FILE__, __LINE__);
     renderer = SDL_CreateRendererWithProperties(props);
-    printf("%s:%d\n", __FILE__, __LINE__);
     SDL_DestroyProperties(props);
-    printf("%s:%d\n", __FILE__, __LINE__);
     return renderer;
 }
 
