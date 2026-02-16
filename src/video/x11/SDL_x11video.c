@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -75,6 +75,16 @@ static bool X11_IsXWayland(Display *d)
 {
     int opcode, event, error;
     return X11_XQueryExtension(d, "XWAYLAND", &opcode, &event, &error) == True;
+}
+
+static bool X11_IsWSL(void)
+{
+#ifdef SDL_PLATFORM_LINUX
+    if (SDL_GetPathInfo("/proc/sys/fs/binfmt_misc/WSLInterop", NULL) || SDL_GetPathInfo("/run/WSL", NULL)) { // if either of these exist, we're on WSL.
+         return true;
+    }
+#endif
+    return false;
 }
 
 static SDL_VideoDevice *X11_CreateDevice(void)
@@ -238,7 +248,6 @@ static SDL_VideoDevice *X11_CreateDevice(void)
     device->HasScreenKeyboardSupport = X11_HasScreenKeyboardSupport;
     device->ShowScreenKeyboard = X11_ShowScreenKeyboard;
     device->HideScreenKeyboard = X11_HideScreenKeyboard;
-    device->IsScreenKeyboardShown = X11_IsScreenKeyboardShown;
 
     device->free = X11_DeleteDevice;
 
@@ -256,15 +265,19 @@ static SDL_VideoDevice *X11_CreateDevice(void)
         device->system_theme = SDL_SystemTheme_Get();
 #endif
 
-    device->device_caps = VIDEO_DEVICE_CAPS_HAS_POPUP_WINDOW_SUPPORT;
+    device->device_caps = VIDEO_DEVICE_CAPS_HAS_POPUP_WINDOW_SUPPORT |
+                          VIDEO_DEVICE_CAPS_SLOW_FRAMEBUFFER;
 
     data->is_xwayland = X11_IsXWayland(x11_display);
     if (data->is_xwayland) {
         SDL_LogInfo(SDL_LOG_CATEGORY_VIDEO, "Detected XWayland");
 
         device->device_caps |= VIDEO_DEVICE_CAPS_MODE_SWITCHING_EMULATED |
-                               VIDEO_DEVICE_CAPS_DISABLE_MOUSE_WARP_ON_FULLSCREEN_TRANSITIONS |
                                VIDEO_DEVICE_CAPS_SENDS_FULLSCREEN_DIMENSIONS;
+    }
+    if (X11_IsWSL()) {
+        // On WSL, direct X11 is faster than using OpenGL for window framebuffers, so try to detect WSL and avoid texture framebuffer.
+        device->device_caps &= ~VIDEO_DEVICE_CAPS_SLOW_FRAMEBUFFER;
     }
 
     return device;
@@ -364,6 +377,7 @@ static bool X11_VideoInit(SDL_VideoDevice *_this)
     GET_ATOM(WM_TAKE_FOCUS);
     GET_ATOM(WM_NAME);
     GET_ATOM(WM_TRANSIENT_FOR);
+    GET_ATOM(WM_STATE);
     GET_ATOM(_NET_WM_STATE);
     GET_ATOM(_NET_WM_STATE_HIDDEN);
     GET_ATOM(_NET_WM_STATE_FOCUSED);
@@ -417,8 +431,8 @@ static bool X11_VideoInit(SDL_VideoDevice *_this)
 
     if (!X11_InitXinput2(_this)) {
         // Assume a mouse and keyboard are attached
-        SDL_AddKeyboard(SDL_DEFAULT_KEYBOARD_ID, NULL, false);
-        SDL_AddMouse(SDL_DEFAULT_MOUSE_ID, NULL, false);
+        SDL_AddKeyboard(SDL_DEFAULT_KEYBOARD_ID, NULL);
+        SDL_AddMouse(SDL_DEFAULT_MOUSE_ID, NULL);
     }
 
 #ifdef SDL_VIDEO_DRIVER_X11_XFIXES
@@ -447,6 +461,10 @@ static bool X11_VideoInit(SDL_VideoDevice *_this)
     X11_InitTouch(_this);
 
     X11_InitPen(_this);
+
+    // Request currently available mime-types in the clipboard.
+    X11_XConvertSelection(data->display, data->atoms.CLIPBOARD, data->atoms.TARGETS,
+            data->atoms.SDL_FORMATS, GetWindow(_this), CurrentTime);
 
     return true;
 }

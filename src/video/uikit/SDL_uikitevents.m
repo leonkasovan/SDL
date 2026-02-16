@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2025 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -62,10 +62,13 @@ static BOOL UIKit_EventPumpEnabled = YES;
         [notificationCenter addObserver:self selector:@selector(applicationWillTerminate) name:UIApplicationWillTerminateNotification object:nil];
         [notificationCenter addObserver:self selector:@selector(applicationDidReceiveMemoryWarning) name:UIApplicationDidReceiveMemoryWarningNotification object:nil];
 #if !defined(SDL_PLATFORM_TVOS) && !defined(SDL_PLATFORM_VISIONOS)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
         [notificationCenter addObserver:self
                                selector:@selector(applicationDidChangeStatusBarOrientation)
                                    name:UIApplicationDidChangeStatusBarOrientationNotification
                                  object:nil];
+#pragma clang diagnostic pop
 #endif
     } else if (!wants_observation && self.isObservingNotifications) {
         self.isObservingNotifications = NO;
@@ -185,7 +188,7 @@ static void OnGCKeyboardConnected(GCKeyboard *keyboard) API_AVAILABLE(macos(11.0
 {
     SDL_KeyboardID keyboardID = (SDL_KeyboardID)(uintptr_t)keyboard;
 
-    SDL_AddKeyboard(keyboardID, NULL, true);
+    SDL_AddKeyboard(keyboardID, NULL);
 
     keyboard.keyboardInput.keyChangedHandler = ^(GCKeyboardInput *kbrd, GCControllerButtonInput *key, GCKeyCode keyCode, BOOL pressed) {
         Uint64 timestamp = SDL_GetTicksNS();
@@ -201,7 +204,7 @@ static void OnGCKeyboardDisconnected(GCKeyboard *keyboard) API_AVAILABLE(macos(1
 {
     SDL_KeyboardID keyboardID = (SDL_KeyboardID)(uintptr_t)keyboard;
 
-    SDL_RemoveKeyboard(keyboardID, true);
+    SDL_RemoveKeyboard(keyboardID);
 
     keyboard.keyboardInput.keyChangedHandler = nil;
 }
@@ -314,7 +317,7 @@ static void OnGCMouseConnected(GCMouse *mouse) API_AVAILABLE(macos(11.0), ios(14
 {
     SDL_MouseID mouseID = (SDL_MouseID)(uintptr_t)mouse;
 
-    SDL_AddMouse(mouseID, NULL, true);
+    SDL_AddMouse(mouseID, NULL);
 
     mouse.mouseInput.leftButton.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
       OnGCMouseButtonChanged(mouseID, SDL_BUTTON_LEFT, pressed);
@@ -385,7 +388,7 @@ static void OnGCMouseDisconnected(GCMouse *mouse) API_AVAILABLE(macos(11.0), ios
 
     UpdatePointerLock();
 
-    SDL_RemoveMouse(mouseID, true);
+    SDL_RemoveMouse(mouseID);
 }
 
 void SDL_InitGCMouse(void)
